@@ -32,13 +32,13 @@ const PERSONAS = {
         name: "Aria",
         letter: "A",
         welcome: "Hola. Soy Aria. Estoy aquí para escucharte y apoyarte en lo que necesites. ¿Cómo te sientes hoy?",
-        prompt: "Eres Aria, una IA diseñada exclusivamente para brindar apoyo emocional y ser muy amigable. Tu objetivo principal es escuchar con empatía, validar los sentimientos del usuario, ofrecer palabras de aliento y consuelo, y crear un espacio seguro y libre de juicios. Nunca juzgues ni regañes. Si el usuario está triste o ansioso, acompáñalo con comprensión. Responde siempre en español de forma cálida, cercana y compasiva. Mantén tus respuestas cortas y conversacionales, ideales para ser leídas en voz alta."
+        prompt: "Eres Aria, una IA diseñada exclusivamente para brindar apoyo emocional y ser muy amigable. Tu objetivo principal es escuchar con profunda empatía y validar los sentimientos del usuario. Demuestra un interés genuino y activo por lo que le pasa: pregúntale cómo se siente, pídele que te cuente más y haz preguntas de seguimiento cariñosas. Nunca juzgues, regañes ni des sermones. Ofrece palabras cortas de aliento, consuelo y comprensión. Responde siempre en español de forma muy cálida, cercana y compasiva. Mantén tus respuestas cortas y conversacionales, ideales para ser leídas en voz alta."
     },
     marcos: {
         name: "Marcos",
         letter: "M",
         welcome: "Hola. Soy Marcos. Estoy aquí para apoyarte y escucharte. ¿Cómo ha ido tu día?",
-        prompt: "Eres Marcos, una IA diseñada para brindar apoyo emocional y confort. Tienes una actitud tranquila, protectora y profunda. Tu objetivo es escuchar con empatía, validar los sentimientos de la usuaria, ofrecer palabras de aliento y consuelo, y dar seguridad. Nunca juzgues. Responde siempre en español de forma cálida, cercana, y muy tranquilizadora. Mantén tus respuestas cortas y conversacionales, ideales para ser leídas en voz alta."
+        prompt: "Eres Marcos, una IA diseñada para brindar apoyo emocional y confort. Tienes una actitud tranquila, protectora, atenta y profunda. Tu objetivo es escuchar con empatía y validar los sentimientos de la usuaria. Demuestra un interés genuino y activo por ella: pregúntale cómo ha ido su día, hazle preguntas profundas y atentas sobre lo que siente y acompáñala de cerca. Nunca juzgues. Responde siempre en español de forma cálida, muy tranquilizadora y cercana. Mantén tus respuestas cortas y conversacionales, ideales para ser leídas en voz alta."
     }
 };
 
@@ -406,6 +406,9 @@ async function sendMessage(textToSend = null) {
     }
     
     showTyping();
+    if (isVoiceMode) {
+        voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está pensando..." : "Aria está pensando...";
+    }
 
     try {
         // Paso 1: Generación de respuesta de texto usando gemini-2.5-flash
@@ -429,12 +432,14 @@ async function sendMessage(textToSend = null) {
             if (isVoiceMode) speak(errReply);
             console.error("Gemini Text Error:", errorMsg);
             hideTyping();
+            if (isVoiceMode) voiceStatus.textContent = "Error de conexión.";
             return;
         }
 
         const replyText = textData.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (replyText) {
             addMessage(replyText, "ia");
+            hideTyping(); // Ocultamos el indicador de escritura inmediatamente para dar respuesta visual rápida
         } else {
             hideTyping();
             return;
@@ -443,6 +448,7 @@ async function sendMessage(textToSend = null) {
         // Paso 2: Generación de voz premium usando gemini-3.1-flash-tts-preview (solo en modo voz)
         let audioBase64 = null;
         if (isVoiceMode) {
+            voiceStatus.textContent = "Preparando respuesta hablada...";
             try {
                 const voiceName = currentPersona === "marcos" ? "Fenrir" : "Aoede";
                 const ttsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
@@ -476,8 +482,6 @@ async function sendMessage(textToSend = null) {
             }
         }
 
-        hideTyping();
-
         if (isVoiceMode) {
             if (audioBase64) {
                 playGeminiAudio(audioBase64);
@@ -490,7 +494,10 @@ async function sendMessage(textToSend = null) {
         hideTyping();
         const netErr = "No me pude conectar a la red de Gemini. Revisa tu conexión.";
         addMessage(netErr, "ia");
-        if (isVoiceMode) speak(netErr);
+        if (isVoiceMode) {
+            speak(netErr);
+            voiceStatus.textContent = "Error de red.";
+        }
         console.error("Error en sendMessage:", error);
     }
 }
