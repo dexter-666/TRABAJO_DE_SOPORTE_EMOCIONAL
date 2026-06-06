@@ -46,6 +46,7 @@ let currentPersona = "aria";
 let isVoiceMode = false;
 let isListening = false;
 let isSpeaking = false;
+let chatHistory = []; // Historial de conversación para coherencia de contexto
 
 // Audio Context para animar la esfera
 let audioContext;
@@ -137,6 +138,7 @@ function setPersona(id) {
     if (!PERSONAS[id]) return;
     currentPersona = id;
     localStorage.setItem("aria_persona", id);
+    chatHistory = []; // Limpiar historial al cambiar de personaje para no mezclar contextos
     
     const p = PERSONAS[id];
     headerName.textContent = p.name;
@@ -441,15 +443,21 @@ async function sendMessage(textToSend = null) {
         voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está pensando..." : "Aria está pensando...";
     }
 
+    // Añadir mensaje del usuario al historial
+    chatHistory.push({ role: "user", parts: [{ text: text }] });
+    if (chatHistory.length > 20) {
+        chatHistory = chatHistory.slice(-20); // Mantener los últimos 10 turnos completos (20 mensajes)
+    }
+
     try {
-        // Paso 1: Generación de respuesta de texto usando gemini-2.5-flash
+        // Paso 1: Generación de respuesta de texto usando gemini-2.5-flash con historial
         const textResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: text }] }],
+                contents: chatHistory,
                 systemInstruction: { parts: [{ text: PERSONAS[currentPersona].prompt }] }
             })
         });
@@ -457,6 +465,7 @@ async function sendMessage(textToSend = null) {
         const textData = await textResponse.json();
 
         if (!textResponse.ok || textData.error) {
+            chatHistory.pop(); // Revertir historial en caso de error
             const errorMsg = textData.error?.message || "Error en la petición de texto";
             const errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
             addMessage(errReply, "ia");
@@ -471,7 +480,9 @@ async function sendMessage(textToSend = null) {
         if (replyText) {
             addMessage(replyText, "ia");
             hideTyping(); // Ocultamos el indicador de escritura inmediatamente para dar respuesta visual rápida
+            chatHistory.push({ role: "model", parts: [{ text: replyText }] }); // Guardar respuesta en el historial
         } else {
+            chatHistory.pop(); // Revertir historial en caso de respuesta vacía
             hideTyping();
             return;
         }
@@ -481,7 +492,7 @@ async function sendMessage(textToSend = null) {
         if (isVoiceMode) {
             voiceStatus.textContent = "Preparando respuesta hablada...";
             try {
-                const voiceName = currentPersona === "marcos" ? "Fenrir" : "Aoede";
+                const voiceName = currentPersona === "marcos" ? "Charon" : "Aoede"; // Cambiamos Fenrir por Charon para Marcos
                 const ttsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
                     method: "POST",
                     headers: {
@@ -522,6 +533,7 @@ async function sendMessage(textToSend = null) {
         }
 
     } catch (error) {
+        chatHistory.pop(); // Revertir historial en caso de excepción
         hideTyping();
         const netErr = "No me pude conectar a la red de Gemini. Revisa tu conexión.";
         addMessage(netErr, "ia");
