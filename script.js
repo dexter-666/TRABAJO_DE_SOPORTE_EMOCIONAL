@@ -84,7 +84,11 @@ if (SpeechRecognition) {
         if (event.error === 'not-allowed' || event.error === 'micro-phone') {
             voiceStatus.textContent = "Permiso de micrófono denegado. Actívalo en el candado 🔒 de la barra de direcciones.";
         } else if (event.error === 'network') {
-            voiceStatus.textContent = "Error de red. Recuerda que debes usar el enlace de GitHub Pages, no el archivo local.";
+            if (window.location.protocol === 'file:') {
+                voiceStatus.textContent = "No se puede usar el micrófono en un archivo local. Debes abrir el enlace de GitHub Pages.";
+            } else {
+                voiceStatus.textContent = "Error de red en el dictado por voz. Asegúrate de usar Google Chrome o Edge y tener buena conexión.";
+            }
         } else {
             voiceStatus.textContent = "Error al escuchar: " + event.error + ". Toca para reintentar.";
         }
