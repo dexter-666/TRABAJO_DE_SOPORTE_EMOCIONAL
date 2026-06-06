@@ -483,12 +483,23 @@ async function sendMessage(textToSend = null) {
         if (!textResponse.ok || textData.error) {
             chatHistory.pop(); // Revertir historial en caso de error
             const errorMsg = textData.error?.message || "Error en la petición de texto";
-            const errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
+            
+            let errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
+            let statusText = "Error de conexión.";
+            
+            if (textResponse.status === 429) {
+                errReply = "Estás enviando mensajes muy rápido. Por favor, espera unos 15 segundos antes de continuar para que la conexión se restablezca.";
+                statusText = "Límite de cuota temporal.";
+            } else if (textResponse.status === 403 || textResponse.status === 401) {
+                errReply = "El token de Gemini no es válido o ha sido revocado. Por favor, verifica tu Token en el código.";
+                statusText = "Token inválido.";
+            }
+            
             addMessage(errReply, "ia");
             if (isVoiceMode) speak(errReply);
             console.error("Gemini Text Error:", errorMsg);
             hideTyping();
-            if (isVoiceMode) voiceStatus.textContent = "Error de conexión.";
+            if (isVoiceMode) voiceStatus.textContent = statusText;
             return;
         }
 
