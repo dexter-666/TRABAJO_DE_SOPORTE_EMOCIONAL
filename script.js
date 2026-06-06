@@ -80,7 +80,13 @@ if (SpeechRecognition) {
 
     recognition.onerror = (event) => {
         console.error("Speech Recognition Error:", event.error);
-        voiceStatus.textContent = "Error al escuchar. Toca para reintentar.";
+        if (event.error === 'not-allowed' || event.error === 'micro-phone') {
+            voiceStatus.textContent = "Permiso de micrófono denegado. Actívalo en el candado 🔒 de la barra de direcciones.";
+        } else if (event.error === 'network') {
+            voiceStatus.textContent = "Error de red. Recuerda que debes usar el enlace de GitHub Pages, no el archivo local.";
+        } else {
+            voiceStatus.textContent = "Error al escuchar: " + event.error + ". Toca para reintentar.";
+        }
         stopListening();
     };
 
@@ -302,6 +308,9 @@ async function startAudioVisualizer() {
         draw();
     } catch (err) {
         console.error("Error accediendo al micrófono", err);
+        if (voiceStatus.textContent === "Escuchando...") {
+            voiceStatus.textContent = "No se pudo acceder al micrófono. Revisa los permisos.";
+        }
     }
 }
 
