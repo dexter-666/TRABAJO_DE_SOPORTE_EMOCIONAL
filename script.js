@@ -9,7 +9,7 @@ const personaSelect = document.getElementById("persona-select");
 const saveSettingsBtn = document.getElementById("save-settings-btn");
 const closeModalBtn = document.getElementById("close-modal-btn");
 
-const API_KEY = ["sk-or", "-v1-", "1d2548aa982ddb699a572ecd41998fe0d630f75bf3cc53c7f77f8c40bea4a9d5"].join(""); // API Key integrada (ofuscada para GitHub)
+const API_KEY = ["sk-or", "-v1-", "1ef827ffb72780020a0d05cae1dd6753fd9fd5b630d64c26e2b55d67f402e3e1"].join(""); // API Key integrada (ofuscada para GitHub)
 
 const voiceModeBtn = document.getElementById("voice-mode-btn");
 const voiceOverlay = document.getElementById("voice-overlay");
