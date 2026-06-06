@@ -271,6 +271,33 @@ function stopSpeaking() {
     stopAudioVisualizer();
 }
 
+// Función para añadir cabecera WAV a datos PCM de 16-bit 24kHz mono
+function addWavHeader(rawPcmUint8Array, sampleRate = 24000) {
+    const buffer = new ArrayBuffer(44 + rawPcmUint8Array.length);
+    const view = new DataView(buffer);
+    
+    view.setUint32(0, 0x52494646, false); // "RIFF"
+    view.setUint32(4, 36 + rawPcmUint8Array.length, true); // tamaño de archivo - 8
+    view.setUint32(8, 0x57415645, false); // "WAVE"
+    view.setUint32(12, 0x666d7420, false); // "fmt "
+    view.setUint32(16, 16, true); // tamaño chunk
+    view.setUint16(20, 1, true); // PCM = 1
+    view.setUint16(22, 1, true); // Mono = 1
+    view.setUint32(24, sampleRate, true); // 24000
+    view.setUint32(28, sampleRate * 2, true); // byte rate (sampleRate * channelCount * bytesPerSample)
+    view.setUint16(32, 2, true); // block align
+    view.setUint16(34, 16, true); // 16-bit
+    view.setUint32(36, 0x64617461, false); // "data"
+    view.setUint32(40, rawPcmUint8Array.length, true); // tamaño datos PCM
+    
+    const headerUint8 = new Uint8Array(buffer, 0, 44);
+    const finalArray = new Uint8Array(44 + rawPcmUint8Array.length);
+    finalArray.set(headerUint8, 0);
+    finalArray.set(rawPcmUint8Array, 44);
+    
+    return finalArray;
+}
+
 // Reproductor de Audio Base64 para Gemini
 function playGeminiAudio(base64Audio) {
     if (!isVoiceMode) return;
@@ -278,12 +305,14 @@ function playGeminiAudio(base64Audio) {
     
     try {
         const byteString = atob(base64Audio);
-        const arrayBuffer = new ArrayBuffer(byteString.length);
-        const int8Array = new Uint8Array(arrayBuffer);
+        const rawPcm = new Uint8Array(byteString.length);
         for (let i = 0; i < byteString.length; i++) {
-            int8Array[i] = byteString.charCodeAt(i);
+            rawPcm[i] = byteString.charCodeAt(i);
         }
-        const blob = new Blob([int8Array], { type: 'audio/wav' });
+        
+        // Convertimos PCM crudo a WAV agregando la cabecera de 44 bytes
+        const wavData = addWavHeader(rawPcm, 24000);
+        const blob = new Blob([wavData], { type: 'audio/wav' });
         const audioUrl = URL.createObjectURL(blob);
         
         const audio = new Audio(audioUrl);
@@ -304,7 +333,9 @@ function playGeminiAudio(base64Audio) {
             }
         };
         
-        audio.play().catch(e => console.error("Error reproduciendo audio Gemini:", e));
+        audio.play().catch(e => {
+            console.error("Error reproduciendo audio Gemini:", e);
+        });
     } catch(e) {
         console.error("Error decodificando audio", e);
     }
