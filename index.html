@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA - Apoyo Emocional</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Encabezado -->
+        <header class="glass-header">
+            <div class="header-info">
+                <div class="avatar" id="header-avatar">
+                    <span class="avatar-letter" id="header-letter">A</span>
+                </div>
+                <div>
+                    <h1 id="header-name">Aria</h1>
+                    <p class="status">En línea, lista para escucharte</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="voice-mode-btn" class="icon-btn" title="Modo Voz">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                </button>
+                <button id="settings-btn" class="icon-btn" title="Configuración">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Área de Chat -->
+        <main id="chat-box" class="chat-area">
+            <div class="message ia-msg">
+                <div class="msg-content" id="welcome-msg">Hola. Soy Aria. Estoy aquí para escucharte y apoyarte en lo que necesites. ¿Cómo te sientes hoy?</div>
+            </div>
+        </main>
+
+        <!-- Indicador de escritura -->
+        <div id="typing-indicator" class="typing-indicator hidden">
+            <span></span><span></span><span></span>
+        </div>
+
+        <!-- Área de Entrada -->
+        <footer class="input-area glass-footer" id="chat-footer">
+            <input type="text" id="user-input" placeholder="Escribe aquí lo que sientes..." autocomplete="off">
+            <button id="send-btn" class="send-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </footer>
+
+        <!-- Modo Voz Overlay -->
+        <div id="voice-overlay" class="voice-overlay hidden">
+            <div class="voice-header">
+                <h2 id="voice-name">Aria</h2>
+            </div>
+            
+            <div class="sphere-container" id="sphere-container" title="Toca para pausar/reanudar escucha">
+                <div id="voice-sphere" class="sphere"></div>
+            </div>
+            
+            <div class="voice-status-container">
+                <p id="voice-status" class="voice-status">Toca la esfera para empezar a hablar</p>
+                <p id="voice-transcript" class="voice-transcript"></p>
+            </div>
+            
+            <button id="close-voice-btn" class="close-voice-btn">Cerrar Modo Voz</button>
+        </div>
+    </div>
+
+    <!-- Modal de Configuración -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <h2>Configuración</h2>
+            
+            <div class="form-group">
+                <label for="persona-select">Personalidad:</label>
+                <select id="persona-select" class="dropdown">
+                    <option value="aria">Aria (Dulce y Empática)</option>
+                    <option value="marcos">Marcos (Profundo y Tranquilizador)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="api-key-input">API Key de OpenRouter:</label>
+                <input type="password" id="api-key-input" placeholder="sk-or-v1-...">
+                <p class="small-text">Tu clave se guarda segura en tu navegador.</p>
+            </div>
+
+            <div class="modal-actions">
+                <button id="save-key-btn" class="primary-btn">Guardar</button>
+                <button id="close-modal-btn" class="secondary-btn">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
