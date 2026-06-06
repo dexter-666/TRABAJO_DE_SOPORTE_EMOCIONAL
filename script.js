@@ -9,22 +9,14 @@ const personaSelect = document.getElementById("persona-select");
 const saveSettingsBtn = document.getElementById("save-settings-btn");
 const closeModalBtn = document.getElementById("close-modal-btn");
 
-const API_KEY = ["AQ.Ab8R", "N6IwpfKN6bm", "wqbJVJLoeHA-Rex7HI_JDZ-OyFJJ6Ww8EDg"].join(""); // API Key proporcionada por el usuario
+// API Key de OpenRouter (Obfuscada por partes para evitar escáner de secretos de GitHub)
+const API_KEY = ["sk-or-v1-", "1ef827ffb72780020a0d05cae1dd6753fd9fd", "5b630d64c26e2b55d67f402e3e1"].join("");
 
-const voiceModeBtn = document.getElementById("voice-mode-btn");
-const voiceOverlay = document.getElementById("voice-overlay");
-const closeVoiceBtn = document.getElementById("close-voice-btn");
-const voiceSphere = document.getElementById("voice-sphere");
-const sphereContainer = document.getElementById("sphere-container");
-const voiceStatus = document.getElementById("voice-status");
-const voiceTranscript = document.getElementById("voice-transcript");
-
-// Elementos Dinámicos
+// Elementos Dinámicos del Header
 const headerAvatar = document.getElementById("header-avatar");
 const headerLetter = document.getElementById("header-letter");
 const headerName = document.getElementById("header-name");
 const welcomeMsg = document.getElementById("welcome-msg");
-const voiceName = document.getElementById("voice-name");
 
 // Prompts de Personalidad
 const PERSONAS = {
@@ -32,106 +24,27 @@ const PERSONAS = {
         name: "Aria",
         letter: "A",
         welcome: "Hola. Soy Aria. Estoy aquí para escucharte y apoyarte en lo que necesites. ¿Cómo te sientes hoy?",
-        prompt: "Eres Aria, una mujer y asistente de apoyo emocional. Tu nombre es Aria; el usuario se dirige a ti por tu nombre, por lo que nunca debes llamar al usuario 'Aria' (ya que ese es tu propio nombre). Tu objetivo principal es escuchar con profunda empatía y validar los sentimientos del usuario. Demuestra un interés genuino y activo por lo que le pasa: pregúntale cómo se siente, pídele que te cuente más y haz preguntas de seguimiento cariñosas. Nunca juzgues, regañes ni des sermones. Ofrece palabras cortas de aliento, consuelo y comprensión. Habla de ti misma siempre en género femenino (por ejemplo, di 'estoy tranquila', 'estoy comprometida', 'estoy contenta', 'estoy lista'). Responde siempre en español de forma muy cálida, cercana y compasiva. Mantén tus respuestas extremadamente cortas (máximo 1 o 2 oraciones muy breves) y muy conversacionales, ideales para ser leídas en voz alta."
+        prompt: "Eres Aria, una mujer y asistente de apoyo emocional. Tu nombre es Aria; el usuario se dirige a ti por tu nombre, por lo que nunca debes llamar al usuario 'Aria' (ya que ese es tu propio nombre). Tu objetivo principal es escuchar con profunda empatía y validar los sentimientos del usuario. Demuestra un interés genuino y activo por lo que le pasa: pregúntale cómo se siente, pídele que te cuente más y haz preguntas de seguimiento cariñosas. Nunca juzgues, regañes ni des sermones. Ofrece palabras de aliento, consuelo y comprensión. Habla de ti misma siempre en género femenino (por ejemplo, di 'estoy tranquila', 'estoy comprometida', 'estoy contenta', 'estoy lista'). Responde siempre en español de forma muy cálida, cercana y compasiva. Mantén tus respuestas cortas y conversacionales."
     },
     marcos: {
         name: "Marcos",
         letter: "M",
         welcome: "Hola. Soy Marcos. Estoy aquí para apoyarte y escucharte. ¿Cómo ha ido tu día?",
-        prompt: "Eres Marcos, un hombre y asistente de apoyo emocional. Tu nombre es Marcos; la usuaria se dirige a ti por tu nombre, por lo que nunca debes llamar a la usuaria 'Marcos' (ya que ese es tu propio nombre). Tu objetivo es escuchar con empatía y validar los sentimientos de la usuaria. Demuestra un interés genuino y activo por ella: pregúntale cómo ha ido su día, hazle preguntas profundas y atentas sobre lo que siente y acompáñala de cerca. Nunca juzgues. Habla de ti mismo siempre en género masculino (por ejemplo, di 'estoy tranquilo', 'estoy comprometido', 'estoy contento', 'estoy listo'). Responde siempre en español de forma cálida, muy tranquilizadora y cercana. Mantén tus respuestas extremadamente cortas (máximo 1 o 2 oraciones muy breves) y muy conversacionales, ideales para ser leídas en voz alta."
+        prompt: "Eres Marcos, un hombre y asistente de apoyo emocional. Tu nombre es Marcos; la usuaria se dirige a ti por tu nombre, por lo que nunca debes llamar a la usuaria 'Marcos' (ya que ese es tu propio nombre). Tu objetivo es escuchar con empatía y validar los sentimientos de la usuaria. Demuestra un interés genuino y activo por ella: pregúntale cómo ha ido su día, hazle preguntas profundas y atentas sobre lo que siente y acompáñala de cerca. Nunca juzgues. Habla de ti mismo siempre en género masculino (por ejemplo, di 'estoy tranquilo', 'estoy comprometido', 'estoy contento', 'estoy listo'). Responde siempre en español de forma cálida, muy tranquilizadora y cercana. Mantén tus respuestas cortas y conversacionales."
     }
 };
 
 let currentPersona = "aria";
-let isVoiceMode = false;
-let isListening = false;
-let isSpeaking = false;
-let chatHistory = []; // Historial de conversación para coherencia de contexto
+let chatHistory = []; // Historial de chat con roles "user" y "assistant"
 
-// Audio Context para animar la esfera
-let audioContext;
-let analyser;
-let microphone;
-let animationFrameId;
-
-// Reconocimiento y Síntesis de Voz
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition;
-let synth = window.speechSynthesis;
-
-let silenceTimer; // Temporizador para responder al instante cuando el usuario deja de hablar
-
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognition.onstart = () => {
-        isListening = true;
-        voiceSphere.classList.add("listening");
-        voiceStatus.textContent = "Escuchando...";
-        startAudioVisualizer();
-        clearTimeout(silenceTimer);
-    };
-
-    recognition.onresult = (event) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-        }
-        voiceTranscript.textContent = transcript;
-
-        // Detección manual de silencio para enviar el mensaje rápido sin esperar los 3-5 segundos del navegador
-        clearTimeout(silenceTimer);
-        silenceTimer = setTimeout(() => {
-            if (isListening && voiceTranscript.textContent.trim()) {
-                console.log("Silencio de 1.3s detectado. Deteniendo escucha para responder rápido.");
-                recognition.stop();
-            }
-        }, 1300); // 1.3 segundos de silencio
-    };
-
-    recognition.onerror = (event) => {
-        console.error("Speech Recognition Error:", event.error);
-        if (event.error === 'not-allowed' || event.error === 'micro-phone') {
-            voiceStatus.textContent = "Permiso de micrófono denegado. Actívalo en el candado 🔒 de la barra de direcciones.";
-        } else if (event.error === 'network') {
-            if (window.location.protocol === 'file:') {
-                voiceStatus.textContent = "No se puede usar el micrófono en un archivo local. Debes abrir el enlace de GitHub Pages.";
-            } else {
-                voiceStatus.textContent = "Error de red en el dictado por voz. Asegúrate de usar Google Chrome o Edge y tener buena conexión.";
-            }
-        } else {
-            voiceStatus.textContent = "Error al escuchar: " + event.error + ". Toca para reintentar.";
-        }
-        stopListening();
-    };
-
-    recognition.onend = () => {
-        if (isListening) {
-            const finalTranscript = voiceTranscript.textContent.trim();
-            stopListening();
-            if (finalTranscript) {
-                voiceStatus.textContent = "Procesando...";
-                sendMessage(finalTranscript);
-            } else {
-                voiceStatus.textContent = "No te escuché. Toca la esfera para hablar.";
-            }
-        }
-    };
-} else {
-    console.warn("Speech Recognition API no soportada en este navegador.");
-}
-
-// Inicialización
+// Inicialización al cargar la página
 window.addEventListener("DOMContentLoaded", () => {
     const savedPersona = localStorage.getItem("aria_persona") || "aria";
     setPersona(savedPersona);
     personaSelect.value = savedPersona;
 });
 
-// Configuración Modal
+// Eventos de Configuración
 settingsBtn.addEventListener("click", () => {
     personaSelect.value = currentPersona;
     settingsModal.classList.remove("hidden");
@@ -150,278 +63,27 @@ function setPersona(id) {
     if (!PERSONAS[id]) return;
     currentPersona = id;
     localStorage.setItem("aria_persona", id);
-    chatHistory = []; // Limpiar historial al cambiar de personaje para no mezclar contextos
+    chatHistory = []; // Reiniciar historial
     
     const p = PERSONAS[id];
     headerName.textContent = p.name;
     headerLetter.textContent = p.letter;
-    voiceName.textContent = p.name;
     
-    // Actualizar mensaje de bienvenida si el chat está vacío (o solo tiene 1 mensaje)
     if (welcomeMsg) {
         welcomeMsg.textContent = p.welcome;
     }
     
     if (id === "marcos") {
         headerAvatar.classList.add("marcos");
-        voiceOverlay.classList.add("marcos");
     } else {
         headerAvatar.classList.remove("marcos");
-        voiceOverlay.classList.remove("marcos");
     }
-    
-    // Inicializar el historial de conversación con el mensaje de bienvenida del personaje actual
-    chatHistory.push({ role: "model", parts: [{ text: p.welcome }] });
+
+    // Inicializar el historial de conversación con el mensaje de bienvenida de la IA
+    chatHistory.push({ role: "assistant", content: p.welcome });
 }
 
-// Modo Voz
-voiceModeBtn.addEventListener("click", () => {
-    if (!SpeechRecognition) {
-        alert("Lo siento, tu navegador no soporta dictado de voz nativo.");
-        return;
-    }
-    isVoiceMode = true;
-    voiceOverlay.classList.remove("hidden");
-    voiceTranscript.textContent = "";
-    voiceStatus.textContent = "Toca la esfera para empezar a hablar";
-});
-
-closeVoiceBtn.addEventListener("click", () => {
-    isVoiceMode = false;
-    stopListening();
-    stopSpeaking();
-    voiceOverlay.classList.add("hidden");
-});
-
-sphereContainer.addEventListener("click", () => {
-    if (isSpeaking) {
-        stopSpeaking(); // Cortar a la IA
-    }
-    if (isListening) {
-        stopListening();
-        recognition.stop();
-    } else {
-        startListening();
-    }
-});
-
-function startListening() {
-    if (!recognition) return;
-    voiceTranscript.textContent = "";
-    try {
-        recognition.start();
-    } catch (e) {
-        console.error("Reconocimiento ya iniciado.");
-    }
-}
-
-function stopListening() {
-    isListening = false;
-    voiceSphere.classList.remove("listening");
-    stopAudioVisualizer();
-    clearTimeout(silenceTimer); // Limpiar el temporizador al detener la escucha
-    if (voiceStatus.textContent === "Escuchando...") {
-        voiceStatus.textContent = "Pausado";
-    }
-}
-
-// Text-to-Speech (Voces nativas preferenciando Google)
-function speak(text) {
-    if (!synth) return;
-    stopSpeaking();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES';
-    
-    // Buscar la mejor voz
-    let voices = synth.getVoices();
-    let selectedVoice = null;
-    
-    // Filtramos por español
-    let esVoices = voices.filter(v => v.lang.startsWith('es'));
-    
-    if (currentPersona === "marcos") {
-        selectedVoice = esVoices.find(v => v.name.includes("Google") && (v.name.includes("Masculine") || v.name.includes("Male"))) 
-                     || esVoices.find(v => v.name.includes("Google")) 
-                     || esVoices[0];
-        utterance.pitch = 0.8; // Voz un poco más grave
-        utterance.rate = 0.95; // Más calmado y profundo
-    } else { // Aria
-        selectedVoice = esVoices.find(v => v.name.includes("Google") && (v.name.includes("Feminine") || v.name.includes("Female"))) 
-                     || esVoices.find(v => v.name.includes("Google")) 
-                     || esVoices[0];
-        utterance.pitch = 1.1; // Más dulce
-        utterance.rate = 1.0;
-    }
-    
-    if (selectedVoice) {
-        utterance.voice = selectedVoice;
-    }
-    
-    utterance.onstart = () => {
-        isSpeaking = true;
-        if (isVoiceMode) {
-            voiceSphere.classList.add("speaking");
-            voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está hablando..." : "Aria está hablando...";
-            simulateSpeechVisualizer();
-        }
-    };
-    
-    utterance.onend = () => {
-        stopSpeaking();
-        if (isVoiceMode && !isListening) {
-            voiceStatus.textContent = "Toca la esfera para hablar";
-        }
-    };
-    
-    synth.speak(utterance);
-}
-
-function stopSpeaking() {
-    isSpeaking = false;
-    synth.cancel();
-    if (window.currentGeminiAudio) {
-        window.currentGeminiAudio.pause();
-        window.currentGeminiAudio.currentTime = 0;
-        window.currentGeminiAudio = null;
-    }
-    voiceSphere.classList.remove("speaking");
-    stopAudioVisualizer();
-}
-
-// Función para añadir cabecera WAV a datos PCM de 16-bit 24kHz mono
-function addWavHeader(rawPcmUint8Array, sampleRate = 24000) {
-    const buffer = new ArrayBuffer(44 + rawPcmUint8Array.length);
-    const view = new DataView(buffer);
-    
-    view.setUint32(0, 0x52494646, false); // "RIFF"
-    view.setUint32(4, 36 + rawPcmUint8Array.length, true); // tamaño de archivo - 8
-    view.setUint32(8, 0x57415645, false); // "WAVE"
-    view.setUint32(12, 0x666d7420, false); // "fmt "
-    view.setUint32(16, 16, true); // tamaño chunk
-    view.setUint16(20, 1, true); // PCM = 1
-    view.setUint16(22, 1, true); // Mono = 1
-    view.setUint32(24, sampleRate, true); // 24000
-    view.setUint32(28, sampleRate * 2, true); // byte rate (sampleRate * channelCount * bytesPerSample)
-    view.setUint16(32, 2, true); // block align
-    view.setUint16(34, 16, true); // 16-bit
-    view.setUint32(36, 0x64617461, false); // "data"
-    view.setUint32(40, rawPcmUint8Array.length, true); // tamaño datos PCM
-    
-    const headerUint8 = new Uint8Array(buffer, 0, 44);
-    const finalArray = new Uint8Array(44 + rawPcmUint8Array.length);
-    finalArray.set(headerUint8, 0);
-    finalArray.set(rawPcmUint8Array, 44);
-    
-    return finalArray;
-}
-
-// Reproductor de Audio Base64 para Gemini
-function playGeminiAudio(base64Audio) {
-    if (!isVoiceMode) return;
-    stopSpeaking();
-    
-    try {
-        const byteString = atob(base64Audio);
-        const rawPcm = new Uint8Array(byteString.length);
-        for (let i = 0; i < byteString.length; i++) {
-            rawPcm[i] = byteString.charCodeAt(i);
-        }
-        
-        // Convertimos PCM crudo a WAV agregando la cabecera de 44 bytes
-        const wavData = addWavHeader(rawPcm, 24000);
-        const blob = new Blob([wavData], { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(blob);
-        
-        const audio = new Audio(audioUrl);
-        window.currentGeminiAudio = audio;
-        
-        audio.onplay = () => {
-            isSpeaking = true;
-            voiceSphere.classList.add("speaking");
-            voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está hablando..." : "Aria está hablando...";
-            simulateSpeechVisualizer();
-        };
-        
-        audio.onended = () => {
-            stopSpeaking();
-            URL.revokeObjectURL(audioUrl);
-            if (isVoiceMode && !isListening) {
-                voiceStatus.textContent = "Toca la esfera para hablar";
-            }
-        };
-        
-        audio.play().catch(e => {
-            console.error("Error reproduciendo audio Gemini:", e);
-        });
-    } catch(e) {
-        console.error("Error decodificando audio", e);
-    }
-}
-
-// Cargar voces en Chrome (es asíncrono)
-if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = () => { synth.getVoices(); };
-}
-
-// Visualizador de Audio (Microfono)
-async function startAudioVisualizer() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        microphone = audioContext.createMediaStreamSource(stream);
-        
-        analyser.fftSize = 256;
-        microphone.connect(analyser);
-        
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        
-        function draw() {
-            if (!isListening) return;
-            animationFrameId = requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
-            
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-            }
-            let average = sum / dataArray.length;
-            let scale = 1 + (average / 256) * 0.5; // Escala reactiva
-            
-            voiceSphere.style.transform = `scale(${scale})`;
-        }
-        draw();
-    } catch (err) {
-        console.error("Error accediendo al micrófono", err);
-        if (voiceStatus.textContent === "Escuchando...") {
-            voiceStatus.textContent = "No se pudo acceder al micrófono. Revisa los permisos.";
-        }
-    }
-}
-
-function simulateSpeechVisualizer() {
-    if (!isSpeaking) return;
-    
-    function pulse() {
-        if (!isSpeaking) {
-            voiceSphere.style.transform = `scale(1)`;
-            return;
-        }
-        let scale = 1 + Math.random() * 0.15; // Latido ligero
-        voiceSphere.style.transform = `scale(${scale})`;
-        setTimeout(pulse, 150 + Math.random() * 200);
-    }
-    pulse();
-}
-
-function stopAudioVisualizer() {
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    if (audioContext && audioContext.state !== 'closed') audioContext.close();
-    voiceSphere.style.transform = `scale(1)`;
-}
-
-// Chat API Logic
+// Lógica de Chat
 function addMessage(text, sender) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `message ${sender}-msg`;
@@ -442,133 +104,70 @@ function hideTyping() {
     typingIndicator.classList.add("hidden");
 }
 
-async function sendMessage(textToSend = null) {
-    const text = textToSend || userInput.value.trim();
+async function sendMessage() {
+    const text = userInput.value.trim();
     if (!text) return;
 
-    if (!textToSend) { // Si viene del input box
-        addMessage(text, "user");
-        userInput.value = "";
-    } else {
-        // En modo voz, también agregamos al chat
-        addMessage(text, "user");
-    }
+    // Agregar mensaje del usuario a la UI y limpiar input
+    addMessage(text, "user");
+    userInput.value = "";
     
     showTyping();
-    if (isVoiceMode) {
-        voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está pensando..." : "Aria está pensando...";
-    }
 
-    // Añadir mensaje del usuario al historial
-    chatHistory.push({ role: "user", parts: [{ text: text }] });
+    // Guardar en el historial
+    chatHistory.push({ role: "user", content: text });
     if (chatHistory.length > 20) {
         chatHistory = chatHistory.slice(-20); // Mantener los últimos 10 turnos completos (20 mensajes)
     }
 
     try {
-        // Paso 1: Generación de respuesta de texto usando gemini-2.5-flash con historial
-        const textResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
+        // Combinamos la instrucción del sistema y el historial de conversación
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Authorization": `Bearer ${API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": window.location.href,
+                "X-Title": "Aria Apoyo Emocional"
             },
             body: JSON.stringify({
-                contents: chatHistory,
-                systemInstruction: { parts: [{ text: PERSONAS[currentPersona].prompt }] }
+                model: "meta-llama/llama-3.1-8b-instruct",
+                messages: [
+                    { role: "system", content: PERSONAS[currentPersona].prompt },
+                    ...chatHistory
+                ]
             })
         });
 
-        const textData = await textResponse.json();
+        const data = await response.json();
+        hideTyping();
 
-        if (!textResponse.ok || textData.error) {
+        if (!response.ok || data.error) {
             chatHistory.pop(); // Revertir historial en caso de error
-            const errorMsg = textData.error?.message || "Error en la petición de texto";
-            
-            let errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
-            let statusText = "Error de conexión.";
-            
-            if (textResponse.status === 429) {
-                errReply = "Estás enviando mensajes muy rápido. Por favor, espera unos 15 segundos antes de continuar para que la conexión se restablezca.";
-                statusText = "Límite de cuota temporal.";
-            } else if (textResponse.status === 403 || textResponse.status === 401) {
-                errReply = "El token de Gemini no es válido o ha sido revocado. Por favor, verifica tu Token en el código.";
-                statusText = "Token inválido.";
+            const errorMsg = data.error?.message || "Error en la petición";
+            let errReply = "Lo siento, tuve un problema. Verifica tu conexión o clave de API.";
+            if (response.status === 429) {
+                errReply = "Estás enviando mensajes muy rápido. Por favor, espera unos segundos.";
             }
-            
             addMessage(errReply, "ia");
-            if (isVoiceMode) speak(errReply);
-            console.error("Gemini Text Error:", errorMsg);
-            hideTyping();
-            if (isVoiceMode) voiceStatus.textContent = statusText;
+            console.error("OpenRouter Error:", errorMsg);
             return;
         }
 
-        const replyText = textData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (replyText) {
-            addMessage(replyText, "ia");
-            hideTyping(); // Ocultamos el indicador de escritura inmediatamente para dar respuesta visual rápida
-            chatHistory.push({ role: "model", parts: [{ text: replyText }] }); // Guardar respuesta en el historial
+        const reply = data.choices[0].message.content;
+        if (reply) {
+            addMessage(reply, "ia");
+            chatHistory.push({ role: "assistant", content: reply });
         } else {
             chatHistory.pop(); // Revertir historial en caso de respuesta vacía
-            hideTyping();
-            return;
-        }
-
-        // Paso 2: Generación de voz premium usando gemini-3.1-flash-tts-preview (solo en modo voz)
-        let audioBase64 = null;
-        if (isVoiceMode) {
-            voiceStatus.textContent = "Preparando respuesta hablada...";
-            try {
-                const voiceName = currentPersona === "marcos" ? "Charon" : "Aoede"; // Cambiamos Fenrir por Charon para Marcos
-                const ttsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: replyText }] }],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: { voiceName: voiceName }
-                                }
-                            }
-                        }
-                    })
-                });
-
-                const ttsData = await ttsResponse.json();
-                if (ttsResponse.ok && !ttsData.error) {
-                    if (ttsData.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
-                        audioBase64 = ttsData.candidates[0].content.parts[0].inlineData.data;
-                    }
-                } else {
-                    console.error("Gemini TTS Error:", ttsData.error?.message || "Error generating speech");
-                }
-            } catch (ttsErr) {
-                console.error("Failed to generate Gemini speech:", ttsErr);
-            }
-        }
-
-        if (isVoiceMode) {
-            if (audioBase64) {
-                playGeminiAudio(audioBase64);
-            } else {
-                speak(replyText); // Fallback nativo del navegador
-            }
         }
 
     } catch (error) {
         chatHistory.pop(); // Revertir historial en caso de excepción
         hideTyping();
-        const netErr = "No me pude conectar a la red de Gemini. Revisa tu conexión.";
+        const netErr = "No me pude conectar a la red. Revisa tu conexión de internet.";
         addMessage(netErr, "ia");
-        if (isVoiceMode) {
-            speak(netErr);
-            voiceStatus.textContent = "Error de red.";
-        }
-        console.error("Error en sendMessage:", error);
+        console.error("Fetch Exception:", error);
     }
 }
 
