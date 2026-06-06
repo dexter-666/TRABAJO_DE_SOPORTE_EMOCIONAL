@@ -404,59 +404,81 @@ async function sendMessage(textToSend = null) {
     showTyping();
 
     try {
-        const voiceName = currentPersona === "marcos" ? "Fenrir" : "Aoede";
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
+        // Paso 1: Generación de respuesta de texto usando gemini-2.5-flash
+        const textResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 contents: [{ role: "user", parts: [{ text: text }] }],
-                systemInstruction: { parts: [{ text: PERSONAS[currentPersona].prompt }] },
-                generationConfig: {
-                    responseModalities: isVoiceMode ? ["TEXT", "AUDIO"] : ["TEXT"],
-                    speechConfig: isVoiceMode ? {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: voiceName }
-                        }
-                    } : undefined
-                }
+                systemInstruction: { parts: [{ text: PERSONAS[currentPersona].prompt }] }
             })
         });
 
-        const data = await response.json();
-        hideTyping();
+        const textData = await textResponse.json();
 
-        if (!response.ok || data.error) {
-            const errorMsg = data.error?.message || "Error en la petición";
+        if (!textResponse.ok || textData.error) {
+            const errorMsg = textData.error?.message || "Error en la petición de texto";
             const errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
             addMessage(errReply, "ia");
             if (isVoiceMode) speak(errReply);
-            console.error("Gemini Error:", errorMsg);
+            console.error("Gemini Text Error:", errorMsg);
+            hideTyping();
             return;
         }
 
-        let replyText = "";
-        let audioBase64 = null;
+        const replyText = textData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (replyText) {
+            addMessage(replyText, "ia");
+        } else {
+            hideTyping();
+            return;
+        }
 
-        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-            const parts = data.candidates[0].content.parts;
-            for (const part of parts) {
-                if (part.text) replyText += part.text;
-                if (part.inlineData && part.inlineData.mimeType.startsWith("audio/")) {
-                    audioBase64 = part.inlineData.data;
+        // Paso 2: Generación de voz premium usando gemini-3.1-flash-tts-preview (solo en modo voz)
+        let audioBase64 = null;
+        if (isVoiceMode) {
+            try {
+                const voiceName = currentPersona === "marcos" ? "Fenrir" : "Aoede";
+                const ttsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: replyText }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: { voiceName: voiceName }
+                                }
+                            }
+                        }
+                    })
+                });
+
+                const ttsData = await ttsResponse.json();
+                if (ttsResponse.ok && !ttsData.error) {
+                    if (ttsData.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+                        audioBase64 = ttsData.candidates[0].content.parts[0].inlineData.data;
+                    }
+                } else {
+                    console.error("Gemini TTS Error:", ttsData.error?.message || "Error generating speech");
                 }
+            } catch (ttsErr) {
+                console.error("Failed to generate Gemini speech:", ttsErr);
             }
         }
 
-        if (replyText) addMessage(replyText, "ia");
-        
+        hideTyping();
+
         if (isVoiceMode) {
             if (audioBase64) {
                 playGeminiAudio(audioBase64);
             } else {
-                speak(replyText); // Fallback nativo
+                speak(replyText); // Fallback nativo del navegador
             }
         }
 
@@ -465,6 +487,7 @@ async function sendMessage(textToSend = null) {
         const netErr = "No me pude conectar a la red de Gemini. Revisa tu conexión.";
         addMessage(netErr, "ia");
         if (isVoiceMode) speak(netErr);
+        console.error("Error en sendMessage:", error);
     }
 }
 
