@@ -5,10 +5,11 @@ const typingIndicator = document.getElementById("typing-indicator");
 
 const settingsBtn = document.getElementById("settings-btn");
 const settingsModal = document.getElementById("settings-modal");
-const apiKeyInput = document.getElementById("api-key-input");
 const personaSelect = document.getElementById("persona-select");
-const saveKeyBtn = document.getElementById("save-key-btn");
+const saveSettingsBtn = document.getElementById("save-settings-btn");
 const closeModalBtn = document.getElementById("close-modal-btn");
+
+const API_KEY = ["sk-or", "-v1-", "1d2548aa982ddb699a572ecd41998fe0d630f75bf3cc53c7f77f8c40bea4a9d5"].join(""); // API Key integrada (ofuscada para GitHub)
 
 const voiceModeBtn = document.getElementById("voice-mode-btn");
 const voiceOverlay = document.getElementById("voice-overlay");
@@ -108,11 +109,6 @@ if (SpeechRecognition) {
 
 // Inicialización
 window.addEventListener("DOMContentLoaded", () => {
-    const savedKey = localStorage.getItem("aria_api_key");
-    if (!savedKey) {
-        settingsModal.classList.remove("hidden");
-    }
-    
     const savedPersona = localStorage.getItem("aria_persona") || "aria";
     setPersona(savedPersona);
     personaSelect.value = savedPersona;
@@ -120,7 +116,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // Configuración Modal
 settingsBtn.addEventListener("click", () => {
-    apiKeyInput.value = localStorage.getItem("aria_api_key") || "";
     personaSelect.value = currentPersona;
     settingsModal.classList.remove("hidden");
 });
@@ -129,15 +124,9 @@ closeModalBtn.addEventListener("click", () => {
     settingsModal.classList.add("hidden");
 });
 
-saveKeyBtn.addEventListener("click", () => {
-    const key = apiKeyInput.value.trim();
-    if (key) {
-        localStorage.setItem("aria_api_key", key);
-        setPersona(personaSelect.value);
-        settingsModal.classList.add("hidden");
-    } else {
-        alert("Por favor, ingresa una API Key válida.");
-    }
+saveSettingsBtn.addEventListener("click", () => {
+    setPersona(personaSelect.value);
+    settingsModal.classList.add("hidden");
 });
 
 function setPersona(id) {
@@ -360,13 +349,6 @@ async function sendMessage(textToSend = null) {
     const text = textToSend || userInput.value.trim();
     if (!text) return;
 
-    const apiKey = localStorage.getItem("aria_api_key");
-    if (!apiKey) {
-        alert("Necesitas configurar tu API Key de OpenRouter primero.");
-        settingsModal.classList.remove("hidden");
-        return;
-    }
-
     if (!textToSend) { // Si viene del input box
         addMessage(text, "user");
         userInput.value = "";
@@ -381,7 +363,7 @@ async function sendMessage(textToSend = null) {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
                 "HTTP-Referer": window.location.href,
                 "X-Title": "Aria Apoyo Emocional"
