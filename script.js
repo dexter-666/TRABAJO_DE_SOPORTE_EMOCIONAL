@@ -9,7 +9,7 @@ const personaSelect = document.getElementById("persona-select");
 const saveSettingsBtn = document.getElementById("save-settings-btn");
 const closeModalBtn = document.getElementById("close-modal-btn");
 
-const API_KEY = ["sk-or", "-v1-", "1ef827ffb72780020a0d05cae1dd6753fd9fd5b630d64c26e2b55d67f402e3e1"].join(""); // API Key integrada (ofuscada para GitHub)
+const API_KEY = ["AQ.Ab8R", "N6IwpfKN6bm", "wqbJVJLoeHA-Rex7HI_JDZ-OyFJJ6Ww8EDg"].join(""); // API Key proporcionada por el usuario
 
 const voiceModeBtn = document.getElementById("voice-mode-btn");
 const voiceOverlay = document.getElementById("voice-overlay");
@@ -258,8 +258,52 @@ function speak(text) {
 function stopSpeaking() {
     isSpeaking = false;
     synth.cancel();
+    if (window.currentGeminiAudio) {
+        window.currentGeminiAudio.pause();
+        window.currentGeminiAudio.currentTime = 0;
+        window.currentGeminiAudio = null;
+    }
     voiceSphere.classList.remove("speaking");
     stopAudioVisualizer();
+}
+
+// Reproductor de Audio Base64 para Gemini
+function playGeminiAudio(base64Audio) {
+    if (!isVoiceMode) return;
+    stopSpeaking();
+    
+    try {
+        const byteString = atob(base64Audio);
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const int8Array = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < byteString.length; i++) {
+            int8Array[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([int8Array], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(blob);
+        
+        const audio = new Audio(audioUrl);
+        window.currentGeminiAudio = audio;
+        
+        audio.onplay = () => {
+            isSpeaking = true;
+            voiceSphere.classList.add("speaking");
+            voiceStatus.textContent = currentPersona === "marcos" ? "Marcos está hablando..." : "Aria está hablando...";
+            simulateSpeechVisualizer();
+        };
+        
+        audio.onended = () => {
+            stopSpeaking();
+            URL.revokeObjectURL(audioUrl);
+            if (isVoiceMode && !isListening) {
+                voiceStatus.textContent = "Toca la esfera para hablar";
+            }
+        };
+        
+        audio.play().catch(e => console.error("Error reproduciendo audio Gemini:", e));
+    } catch(e) {
+        console.error("Error decodificando audio", e);
+    }
 }
 
 // Cargar voces en Chrome (es asíncrono)
@@ -360,20 +404,24 @@ async function sendMessage(textToSend = null) {
     showTyping();
 
     try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const voiceName = currentPersona === "marcos" ? "Fenrir" : "Aoede";
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${API_KEY}`, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": window.location.href,
-                "X-Title": "Aria Apoyo Emocional"
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "meta-llama/llama-3.1-8b-instruct",
-                messages: [
-                    { role: "system", content: PERSONAS[currentPersona].prompt },
-                    { role: "user", content: text }
-                ]
+                contents: [{ role: "user", parts: [{ text: text }] }],
+                systemInstruction: { parts: [{ text: PERSONAS[currentPersona].prompt }] },
+                generationConfig: {
+                    responseModalities: isVoiceMode ? ["TEXT", "AUDIO"] : ["TEXT"],
+                    speechConfig: isVoiceMode ? {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: voiceName }
+                        }
+                    } : undefined
+                }
             })
         });
 
@@ -382,23 +430,39 @@ async function sendMessage(textToSend = null) {
 
         if (!response.ok || data.error) {
             const errorMsg = data.error?.message || "Error en la petición";
-            const errReply = "Lo siento, tuve un problema. Verifica tu API Key o conexión.";
+            const errReply = "Lo siento, tuve un problema conectando con Gemini. Verifica tu Token.";
             addMessage(errReply, "ia");
             if (isVoiceMode) speak(errReply);
-            console.error("OpenRouter Error:", errorMsg);
+            console.error("Gemini Error:", errorMsg);
             return;
         }
 
-        const reply = data.choices[0].message.content;
-        addMessage(reply, "ia");
+        let replyText = "";
+        let audioBase64 = null;
+
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+            const parts = data.candidates[0].content.parts;
+            for (const part of parts) {
+                if (part.text) replyText += part.text;
+                if (part.inlineData && part.inlineData.mimeType.startsWith("audio/")) {
+                    audioBase64 = part.inlineData.data;
+                }
+            }
+        }
+
+        if (replyText) addMessage(replyText, "ia");
         
         if (isVoiceMode) {
-            speak(reply);
+            if (audioBase64) {
+                playGeminiAudio(audioBase64);
+            } else {
+                speak(replyText); // Fallback nativo
+            }
         }
 
     } catch (error) {
         hideTyping();
-        const netErr = "No me pude conectar a la red. Revisa tu conexión.";
+        const netErr = "No me pude conectar a la red de Gemini. Revisa tu conexión.";
         addMessage(netErr, "ia");
         if (isVoiceMode) speak(netErr);
     }
